@@ -1,8 +1,7 @@
 //
 //  xAISTTLanguage.swift
 //  Language codes accepted by xAI STT's `language` form field.
-//  Source: https://docs.x.ai/docs/speech-to-text (also mirrored at
-//  openclaw-xai-speech/docs/speech-to-text.md).
+//  Source: https://docs.x.ai/docs/speech-to-text
 //
 //  Note: The model transcribes any of these languages regardless of this
 //  parameter — passing it enables Inverse Text Normalization (formatting of

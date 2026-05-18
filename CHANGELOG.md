@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 — nonisolated audio helper
+
+- Drop `@MainActor` from `xAISTTAudioInputTap.install` / `stop` / `finish`. Callable from any isolation domain, matching `AVAudioEngine`'s own contract — no forced main-thread hop when bootstrapping audio off-main.
+
 ## 0.3.0 — AVAudioEngine mic-tap helper
 
 - Add `xAISTTAudioInputTap` — installs a tap on an externally-managed `AVAudioEngine.inputNode`, converts to 16 kHz mono PCM16 via `AVAudioConverter`, and exposes three streams:

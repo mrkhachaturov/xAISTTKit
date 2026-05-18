@@ -89,7 +89,12 @@ public final class xAISTTAudioInputTap: @unchecked Sendable {
         rmsCont.finish()
     }
 
-    @MainActor
+    /// Install a tap on the engine's `inputNode`. The caller owns the engine
+    /// (`AVAudioSession` category, `.prepare()`, `.start()`, lifecycle).
+    ///
+    /// Callable from any isolation domain — matches `AVAudioEngine`'s own
+    /// contract. Don't call `install` and `stop`/`finish` concurrently on the
+    /// same instance.
     public func install(on engine: AVAudioEngine) throws {
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0 else {
@@ -141,13 +146,11 @@ public final class xAISTTAudioInputTap: @unchecked Sendable {
         self.attachedEngine = engine
     }
 
-    @MainActor
     public func stop() {
         attachedEngine?.inputNode.removeTap(onBus: 0)
         attachedEngine = nil
     }
 
-    @MainActor
     public func finish() {
         stop()
         chunkCont.finish()

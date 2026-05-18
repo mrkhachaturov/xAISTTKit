@@ -5,14 +5,14 @@
 
 import Foundation
 
-public struct xAISTTResponse: Decodable, Sendable {
+public struct xAISTTResponse: Decodable, Sendable, Equatable {
     public let text: String
     public let language: String?
     public let duration: Double?
     public let words: [Word]?
     public let channels: [Channel]?
 
-    public struct Word: Decodable, Sendable {
+    public struct Word: Decodable, Sendable, Equatable {
         public let text: String
         public let start: Double
         public let end: Double
@@ -20,7 +20,7 @@ public struct xAISTTResponse: Decodable, Sendable {
         public let speaker: Int?
     }
 
-    public struct Channel: Decodable, Sendable {
+    public struct Channel: Decodable, Sendable, Equatable {
         public let index: Int
         public let text: String
         public let words: [Word]?

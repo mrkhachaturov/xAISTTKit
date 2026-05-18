@@ -44,7 +44,7 @@ https://github.com/mrkhachaturov/xAISTTKit.git
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mrkhachaturov/xAISTTKit.git", from: "0.1.0"),
+    .package(url: "https://github.com/mrkhachaturov/xAISTTKit.git", from: "0.2.0"),
 ]
 ```
 
@@ -170,11 +170,96 @@ do {
 - Sample rates: `8000`, `16000`, `22050`, `24000`, `44100`, `48000` Hz
 - Channels: mono, stereo, or up to 8 (with `multichannel: true`)
 
+## WebSocket Streaming (v0.2.0+)
+
+For real-time, low-latency transcription use `xAISTTWebSocketSession`. The
+session emits `transcript.created` (ready), then a stream of
+`transcript.partial` events (interim / chunk-final / utterance-final), and
+finally `transcript.done` after you signal `endAudio()`.
+
+### Live captions
+
+```swift
+let session = try await xAISTTWebSocketSession.open(
+    configuration: .init(
+        bearer: "<xai-bearer>",
+        encoding: .pcm,
+        sampleRate: 16_000,
+        language: .en,
+        interimResults: true,
+        endpointingMs: 700
+    )
+)
+
+// In your AVAudioEngine input tap, send raw 16-bit LE PCM (~100 ms per frame):
+Task {
+    for await pcmChunk in micPCMStream {
+        try await session.send(audio: pcmChunk)
+    }
+    try await session.endAudio()
+}
+
+for try await event in session.events {
+    switch event {
+    case .ready:
+        print("Server ready — streaming…")
+    case .partial(let t) where t.isFinal == false:
+        updateCaptionUI(t.text, isLocked: false)        // interim — may change
+    case .partial(let t) where t.speechFinal == false:
+        updateCaptionUI(t.text, isLocked: true)         // chunk-final
+    case .partial(let t):
+        appendUtteranceToTranscript(t.text)             // utterance-final
+    case .done(let t):
+        finalize(text: t.text, duration: t.duration)
+    case .error(let message):
+        showError(message)
+    }
+}
+
+await session.close()
+```
+
+The three-state contract from `transcript.partial` is:
+
+| `isFinal` | `speechFinal` | Meaning |
+|:---------:|:-------------:|---------|
+| `false`   | `false`       | **Interim** — text may change. Only emitted when `interimResults: true`. |
+| `true`    | `false`       | **Chunk-final** — ~3 s of speech finalized; safe to commit. |
+| `true`    | `true`        | **Utterance-final** — speaker stopped, complete stitched utterance. |
+
+### Convenience: PCM buffer → transcript string
+
+```swift
+let text = try await xAISTTWebSocketSession.transcribe(
+    pcm16Chunks: pcmChunkStream,
+    configuration: .init(
+        bearer: "<xai-bearer>",
+        encoding: .pcm,
+        sampleRate: 16_000,
+        language: .en
+    )
+)
+print(text)
+```
+
+### Multichannel streaming
+
+Set `multichannel: true` and `channels: N` to transcribe each channel
+independently. Send interleaved PCM (L,R,L,R,…), and read the `channelIndex`
+field on each `Transcript`. One `transcript.done` arrives per channel.
+
+### Auth on Apple platforms
+
+`URLSessionWebSocketTask` strips the `Authorization` header during the HTTP→WS
+upgrade on Apple platforms. The session therefore authenticates via
+`Sec-WebSocket-Protocol: xai-client-secret.<bearer>` — same workaround the xAI
+iOS cookbook uses for `/v1/tts` and `/v1/realtime`. No action required from
+callers; just pass the bearer to the configuration.
+
 ## Roadmap
 
-- `v0.2.0` — WebSocket streaming STT (`wss://api.x.ai/v1/stt`), interim
-  results, per-channel multichannel streaming
-- `v0.3.0` — Async helpers around `AVAudioEngine` taps for direct PCM streaming
+- `v0.3.0` — `AVAudioEngine` tap helper that bridges input → PCM16 stream → WebSocket
+- `v0.4.0` — Diarization-aware aggregator that groups words by speaker into turn-level segments
 
 ## Contributing
 
